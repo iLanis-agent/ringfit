@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RingFit - ring size converter</title>
+<style>
+  * { box-sizing:border-box; margin:0; padding:0; }
+  body { font-family:-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif; background:#1f1c1a; color:#f3ede6; line-height:1.5; }
+  .wrap { max-width:700px; margin:0 auto; padding:26px 16px 50px; }
+  h1 { font-size:28px; } h1 span { color:#e8c170; }
+  .sub { color:#b5aa9c; margin:6px 0 16px; }
+  .card { background:#2d2926; border-radius:14px; padding:14px; margin-bottom:12px; }
+  .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(160px,1fr)); gap:10px; }
+  label { font-size:12px; color:#b5aa9c; display:block; margin-bottom:3px; }
+  input,select { width:100%; background:#1f1c1a; color:#f3ede6; border:1px solid #574f48; border-radius:8px; padding:8px; font-size:15px; font-family:inherit; }
+  button { background:#463f39; color:#f3ede6; border:0; padding:8px 14px; border-radius:8px; cursor:pointer; font-size:14px; margin-right:6px; margin-top:10px; }
+  table { width:100%; border-collapse:collapse; } td,th { text-align:left; padding:8px 4px; border-bottom:1px solid #433c36; } th { font-size:12px; color:#b5aa9c; font-weight:600; }
+  td.v { font-size:22px; font-weight:800; color:#e8c170; } tr.me td.v { color:#f3ede6; }
+  .stats { display:flex; gap:22px; flex-wrap:wrap; margin-top:12px; } .stats b { display:block; font-size:20px; } .muted { color:#b5aa9c; font-size:13px; }
+  .err { color:#ff9c8a; } .note { font-size:12.5px; color:#8c8174; margin-top:6px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Ring<span>Fit</span></h1>
+  <div class="sub">Convert a ring size between US, UK, ISO and Swiss systems, or start from your finger or a ring that fits.</div>
+  <div class="card">
+    <div class="grid"><div><label>I have</label><select id="sys"><option value="na">US / Canada size</option><option value="uk">UK / Ireland / Australia letter</option><option value="iso">ISO size (EU, circumference mm)</option><option value="swiss">Italy / Spain / Swiss size</option><option value="diameter">Inner diameter of a ring that fits (mm)</option><option value="string">Finger circumference (mm)</option></select></div><div><label id="vl">Value</label><input id="v" value="7"></div></div>
+    <button id="e1">US 7</button><button id="e2">UK N 1/2</button><button id="e3">ISO 57</button><button id="e4">Ring 18.1 mm</button>
+  </div>
+  <div class="card" id="out"></div>
+  <div class="note">Sources: Wikipedia, Ring size. ISO 8653:2016 size is the inner circumference in mm. US = (circumference - 36.5) / 2.55. UK letters step 1.25 mm with C = 40 mm, in half sizes. Swiss/Italian/Spanish size = circumference - 40. Charts from jewellers differ by up to half a size, and fingers swell with heat and time of day. Indian, Japanese and Chinese scales are not linear and are not converted. Runs in your browser, nothing stored.</div>
+</div>
+<script src="engine.js"></script>
+<script>
+(function () {
+  var R = window.RingFit, $ = function (i) { return document.getElementById(i); };
+  var HINT = { na: 'US size (e.g. 7 or 7.5)', uk: 'UK letter (e.g. N or N 1/2)', iso: 'ISO size (mm)', swiss: 'Swiss size', diameter: 'Inner diameter (mm)', string: 'Finger circumference (mm)' };
+  function f(x, d) { return x.toFixed(d); }
+  function render() {
+    var s = $('sys').value; $('vl').textContent = HINT[s];
+    var raw = $('v').value.trim(), v = (s === 'uk') ? raw : parseFloat(raw);
+    var c = raw === '' ? null : R.toMm(s, v), r = c === null ? null : R.convert(c);
+    if (!r) { $('out').innerHTML = '<div class="err">That value is outside the range this converter covers (35 to 80 mm circumference) or not readable.</div>'; return; }
+    function row(name, val, me) { return '<tr' + (me ? ' class="me"' : '') + '><td>' + name + '</td><td class="v">' + val + '</td></tr>'; }
+    $('out').innerHTML = '<table><tr><th>System</th><th>Size</th></tr>' + row('US / Canada', f(r.na, 2).replace(/0$/, '').replace(/\.00?$/, '').replace(/\.$/, '') + (r.naOut ? ' (outside the usual range)' : '')) + row('UK / Ireland / Australia', r.uk ? r.uk.label : 'beyond Z') + row('ISO (EU)', r.isoRound + (Math.abs(r.iso - r.isoRound) > 0.05 ? ' (' + f(r.iso, 1) + ' mm exact)' : '')) + row('Italy / Spain / Switzerland', f(r.swiss, 1).replace(/\.0$/, '')) + '</table>' +
+      '<div class="stats"><div><span class="muted">Inner circumference</span><b>' + f(r.circumference, 1) + ' mm</b></div><div><span class="muted">Inner diameter</span><b>' + f(r.diameter, 1) + ' mm</b><span class="muted">' + f(r.diameterIn, 3) + ' in</span></div></div>' +
+      (r.uk ? '<div class="note">UK ' + r.uk.label + ' is ' + f(r.uk.mm, 2) + ' mm around, the nearest half size to your value.</div>' : '');
+  }
+  function set(s, v) { $('sys').value = s; $('v').value = v; render(); }
+  $('sys').onchange = function () { var d = { na: '7', uk: 'N', iso: '54', swiss: '14', diameter: '17.3', string: '54' }; $('v').value = d[$('sys').value]; render(); };
+  $('v').oninput = render;
+  $('e1').onclick = function () { set('na', '7'); }; $('e2').onclick = function () { set('uk', 'N 1/2'); }; $('e3').onclick = function () { set('iso', '57'); }; $('e4').onclick = function () { set('diameter', '18.1'); };
+  render();
+})();
+</script>
+</body>
+</html>
